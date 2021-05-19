@@ -131,7 +131,7 @@ static int tv_generate_R(struct test_vector *tv) {
   SHAKE256(buf, 4*Rlen, tv->seed, tv->seedlen);
 
   for (i = 0; i < Rlen; ++i) {
-    tv->R[i] = u32le_get(buf + (4*i));
+    tv->R[i] = u32le_get(buf + (4*i)) % tv->tvs->M[i];
   };
 
   rv = 0;
