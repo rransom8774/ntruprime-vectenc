@@ -44,10 +44,10 @@ static vectelt *Mbuf = NULL;
 static size_t Mbuf_capacity = 0;
 
 static struct test_vector_set *tvs_alloc() {
-  size_t i;
+  size_t i = test_vector_sets_count++;
   struct test_vector_set *rv;
 
-  if (test_vector_sets_count >= test_vector_sets_capacity) {
+  if (i >= test_vector_sets_capacity) {
     size_t new_capacity = test_vector_sets_capacity + 8;
     struct test_vector_set *new_tvs_array =
       realloc(test_vector_sets,
@@ -56,13 +56,11 @@ static struct test_vector_set *tvs_alloc() {
       return NULL;
     };
     test_vector_sets = new_tvs_array;
+    test_vector_sets_capacity = new_capacity;
   };
 
-  i = test_vector_sets_count++;
   rv = &(test_vector_sets[i]);
-
   memset(rv, 0, sizeof(*rv));
-
   return rv;
 };
 
@@ -90,6 +88,7 @@ static int tvs_init_vc_Slen(struct test_vector_set *tvs) {
       return -1;
     };
     Mbuf = new_Mbuf;
+    Mbuf_capacity = new_capacity;
   };
 
   memcpy(Mbuf, tvs->M, sizeof(vectelt) * tvs->Mlen);
