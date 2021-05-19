@@ -95,7 +95,7 @@ def tvs_random(n, ilb, iub, Mseed):
     def random_tvs_func(seed):
         return generate_testvec(M, seed)
     testvecset_map['random_%d_%d_%d_%s' %
-                   (n, ilb, iub, Mseed.hex())] = random_tvs_func
+                   (n, ilb, iub, str(Mseed, encoding='us-ascii'))] = random_tvs_func
     pass
 
 # miscellaneous random vector formats with no particular application in mind
