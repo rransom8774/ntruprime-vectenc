@@ -215,7 +215,7 @@ static int gen_tvs_random(size_t n, vectelt ilb, vectelt iub, const char *Mseed)
   struct test_vector tv_tmp;
 
   if (asprintf(&(tvs->name), "random_%d_%d_%d_%s",
-               n, ilb, iub, Mseed) < 0) return -1;
+               (int)n, (int)ilb, (int)iub, Mseed) < 0) return -1;
 
   tvs->M = malloc(sizeof(vectelt) * n);
   if (tvs->M == NULL) return -1;
