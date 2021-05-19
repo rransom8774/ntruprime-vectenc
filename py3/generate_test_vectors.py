@@ -130,7 +130,7 @@ testvecsets_all = testvecset_map.keys()
 
 ap = argparse.ArgumentParser(
     description="Generate test vectors for the NTRU Prime round 2 vector encoder.")
-ap.add_argument('-v', '--verbose', action='store_true')
+ap.add_argument('-v', '--verbose', action='store_true', default=True)
 ap.add_argument('-q', '--quiet', action='store_false', dest='verbose')
 ap.add_argument('-c', '--count', type=int, default=10)
 ap.add_argument('testvecsets', nargs='*', default=testvecsets_all)
@@ -139,7 +139,9 @@ def main(argv):
     args = ap.parse_args(argv[1:])
     for tvsetname in args.testvecsets:
         tvsetfunc = testvecset_map[tvsetname]
-        print(tvsetname)
+        if args.verbose:
+            print(tvsetname)
+            pass
         generate_testvecset_file(tvsetname, tvsetfunc, args.count)
         pass
     return 0
