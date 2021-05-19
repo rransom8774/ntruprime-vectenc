@@ -114,12 +114,15 @@ def generate_testvec_text(tv):
     rv.append('')
     return ''.join(line + '\n' for line in rv)
 
-def generate_testvecset_file(tvsetname, tvsetfunc, count):
-    with open('TVSet_%d_%s.txt' % (count, tvsetname), 'w', encoding='utf8') as f:
-        for i in range(count):
-            seed = u32le.pack(i)
-            tv = tvsetfunc(seed)
-            f.write(generate_testvec_text(tv))
+def generate_testvecset_files(tvsetname, tvsetfunc, count):
+    with open('TVSet_%d_%s.txt' % (count, tvsetname), 'w', encoding='utf8') as f_text:
+        with open('TVSet_%d_%s_S.bin' % (count, tvsetname), 'wb') as f_bin:
+            for i in range(count):
+                seed = u32le.pack(i)
+                tv = tvsetfunc(seed)
+                f_text.write(generate_testvec_text(tv))
+                f_bin.write(tv.S)
+                pass
             pass
         pass
     pass
@@ -142,7 +145,7 @@ def main(argv):
         if args.verbose:
             print(tvsetname)
             pass
-        generate_testvecset_file(tvsetname, tvsetfunc, args.count)
+        generate_testvecset_files(tvsetname, tvsetfunc, args.count)
         pass
     return 0
 
