@@ -105,7 +105,7 @@ tvs_random(768, 2048, 2048+256, b'foo')
 
 # text and test-vector file generation
 
-def generate_testvecset_text(tv):
+def generate_testvec_text(tv):
     rv = list()
     rv.append('Seed = ' + tv.seed.hex())
     rv.append('R = ' + ', '.join(map(str, tv.R)))
@@ -119,7 +119,7 @@ def generate_testvecset_file(tvsetname, tvsetfunc, count):
         for i in range(count):
             seed = u32le.pack(i)
             tv = tvsetfunc(seed)
-            f.write(generate_testvecset_text(tv))
+            f.write(generate_testvec_text(tv))
             pass
         pass
     pass
