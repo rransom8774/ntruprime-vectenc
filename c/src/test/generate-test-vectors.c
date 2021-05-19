@@ -8,9 +8,6 @@
  * WARRANTY WHATSOEVER.
  */
 
-/* for asprintf */
-#define _GNU_SOURCE
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -32,7 +29,7 @@ struct test_vector {
 };
 
 struct test_vector_set {
-  char *name;
+  char name[64];
   vectelt *M;
   size_t Mlen;
   struct vectcoder *vc;
@@ -82,6 +79,9 @@ static struct test_vector_set *tvs_lookup(const char *name) {
 };
 
 static int tvs_init_vc_Slen(struct test_vector_set *tvs) {
+  /* NUL-terminate tvs->name in case snprintf didn't */
+  tvs->name[sizeof(tvs->name) - 1] = '\0';
+
   if (tvs->Mlen > Mbuf_capacity) {
     size_t new_capacity = tvs->Mlen;
     vectelt *new_Mbuf =
@@ -163,9 +163,7 @@ static int gen_tvs_const(vectelt m, size_t n) {
   struct test_vector_set *tvs = tvs_alloc();
   size_t i;
 
-  if (asprintf(&(tvs->name), "const_%d_%d", (int)m, (int)n) < 0) {
-    return -1;
-  };
+  snprintf(tvs->name, sizeof(tvs->name), "const_%d_%d", (int)m, (int)n);
 
   tvs->M = malloc(sizeof(vectelt) * n);
   if (tvs->M == NULL) return -1;
@@ -193,9 +191,7 @@ static int gen_tvs_squished_perm(size_t n) {
   struct test_vector_set *tvs = tvs_alloc();
   size_t i;
 
-  if (asprintf(&(tvs->name), "squished_perm_%d", (int)n) < 0) {
-    return -1;
-  };
+  snprintf(tvs->name, sizeof(tvs->name), "squished_perm_%d", (int)n);
 
   tvs->M = malloc(sizeof(vectelt) * (n-1));
   if (tvs->M == NULL) return -1;
@@ -214,8 +210,8 @@ static int gen_tvs_random(size_t n, vectelt ilb, vectelt iub, const char *Mseed)
   vectelt max = iub - (ilb-1);
   struct test_vector tv_tmp;
 
-  if (asprintf(&(tvs->name), "random_%d_%d_%d_%s",
-               (int)n, (int)ilb, (int)iub, Mseed) < 0) return -1;
+  snprintf(tvs->name, sizeof(tvs->name), "random_%d_%d_%d_%s",
+           (int)n, (int)ilb, (int)iub, Mseed);
 
   tvs->M = malloc(sizeof(vectelt) * n);
   if (tvs->M == NULL) return -1;
@@ -338,8 +334,8 @@ static inline void pack_ui32(uint8_t *buf, uint32_t x) {
 };
 
 static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count) {
-  char *fname_buf_text = NULL;
-  char *fname_buf_bin = NULL;
+  char fname_buf_text[128];
+  char fname_buf_bin[128];
   FILE *f_text = NULL, *f_bin = NULL;
   uint32_t i;
   uint8_t seedbuf[4];
@@ -351,11 +347,13 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
   tv.seedlen = 4;
   tv.tvs = tvs;
 
-  asprintf(&fname_buf_text, "TVSet_%d_%s.txt", count, tvs->name);
+  snprintf(fname_buf_text, 128, "TVSet_%d_%s.txt", count, tvs->name);
+  fname_buf_text[127] = '\0';
   f_text = fopen(fname_buf_text, "w");
   if (f_text == NULL) goto err;
 
-  asprintf(&fname_buf_bin, "TVSet_%d_%s_S.bin", count, tvs->name);
+  snprintf(fname_buf_bin, 128, "TVSet_%d_%s_S.bin", count, tvs->name);
+  fname_buf_bin[127] = '\0';
   f_bin = fopen(fname_buf_bin, "wb");
   if (f_bin == NULL) goto err;
 
@@ -369,9 +367,6 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
   rv = 0;
 
  err:
-  if (fname_buf_text != NULL) free(fname_buf_text);
-  if (fname_buf_bin != NULL) free(fname_buf_bin);
-
   if (f_text != NULL) {
     if (ferror(f_text) != 0) rv = -1;
     if (fclose(f_text) != 0) rv = -1;
