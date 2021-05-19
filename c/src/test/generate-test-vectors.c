@@ -24,7 +24,7 @@
 #include "XKCP/SimpleFIPS202.h"
 
 struct test_vector {
-  uint8_t *seed;
+  const uint8_t *seed;
   size_t seedlen;
   vectelt *R;
   uint8_t *S;
@@ -283,7 +283,7 @@ static int setup_testvecsets() {
   return rv;
 };
 
-static void output_vectelts(FILE *f, vectelt *V, size_t Vlen) {
+static void output_vectelts(FILE *f, const vectelt *V, size_t Vlen) {
   size_t i;
 
   if (Vlen == 0) return;
@@ -301,7 +301,7 @@ static void output_vectelts(FILE *f, vectelt *V, size_t Vlen) {
   };
 };
 
-static void output_hexdump(FILE *f, uint8_t *S, size_t Slen) {
+static void output_hexdump(FILE *f, const uint8_t *S, size_t Slen) {
   size_t i;
 
   for (i = 0; i < Slen; ++i) {
@@ -392,7 +392,7 @@ static void usage(FILE *f) {
   fprintf(f, "usage: generate-test-vectors [-qv] [-c COUNT] [TEST-VEC-SETS]\n");
 };
 
-static void process_testvecset(const struct test_vector_set *tvs, int verbose, uint32_t count) {
+static void process_testvecset(struct test_vector_set *tvs, int verbose, uint32_t count) {
   if (verbose) printf("%s\n", tvs->name);
   if (generate_testvecset_files(tvs, count) < 0) {
     fprintf(stderr, "generate-test-vectors: error generating %s\n", tvs->name);
