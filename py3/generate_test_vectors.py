@@ -9,7 +9,7 @@ import vectenc_ref
 
 TestVector = collections.namedtuple('TestVector', ['R', 'M', 'S', 'seed'])
 
-u32le = struct.Struct('<i')
+u32le = struct.Struct('<I')
 
 def generate_R(M, seed):
     # non-uniform sampling for simplicity
