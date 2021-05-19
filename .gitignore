@@ -1,3 +1,5 @@
 *~
 __pycache__
 out/
+TVSet_*.txt
+TVSet_*.bin
