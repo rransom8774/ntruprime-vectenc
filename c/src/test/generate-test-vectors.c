@@ -226,7 +226,7 @@ static int gen_tvs_random(size_t n, vectelt ilb, vectelt iub, const char *Mseed)
   tv_tmp.seedlen = Mseedlen;
   if (tv_generate_R(&tv_tmp) < 0) return -1;
   for (i = 0; i < n; ++i) {
-    tvs->M[i] = tv_tmp.R[i];
+    tvs->M[i] = tv_tmp.R[i] + ilb;
   };
   free(tv_tmp.R);
 
