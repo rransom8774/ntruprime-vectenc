@@ -335,7 +335,11 @@ static inline void pack_ui32(uint8_t *buf, uint32_t x) {
   buf[3] = (x >> 24) & 255;
 };
 
-static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count) {
+#define FILES_TEXT 1
+#define FILES_S_BIN 2
+#define FILES_ALL 3
+
+static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count, unsigned int files) {
   char fname_buf_text[128];
   char fname_buf_bin[128];
   FILE *f_text = NULL, *f_bin = NULL;
@@ -349,21 +353,25 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
   tv.seedlen = 4;
   tv.tvs = tvs;
 
-  snprintf(fname_buf_text, 128, "TVSet_%d_%s.txt", count, tvs->name);
-  fname_buf_text[127] = '\0';
-  f_text = fopen(fname_buf_text, "w");
-  if (f_text == NULL) goto err;
+  if (files & FILES_TEXT) {
+    snprintf(fname_buf_text, 128, "TVSet_%d_%s.txt", count, tvs->name);
+    fname_buf_text[127] = '\0';
+    f_text = fopen(fname_buf_text, "w");
+    if (f_text == NULL) goto err;
+  };
 
-  snprintf(fname_buf_bin, 128, "TVSet_%d_%s_S.bin", count, tvs->name);
-  fname_buf_bin[127] = '\0';
-  f_bin = fopen(fname_buf_bin, "wb");
-  if (f_bin == NULL) goto err;
+  if (files & FILES_S_BIN) {
+    snprintf(fname_buf_bin, 128, "TVSet_%d_%s_S.bin", count, tvs->name);
+    fname_buf_bin[127] = '\0';
+    f_bin = fopen(fname_buf_bin, "wb");
+    if (f_bin == NULL) goto err;
+  };
 
   for (i = 0; i < count; ++i) {
     pack_ui32(seedbuf, i);
     if (tv_generate_testvec(&tv) < 0) goto err;
-    output_testvec_text(f_text, &tv);
-    output_testvec_bin(f_bin, &tv);
+    if (files & FILES_TEXT) output_testvec_text(f_text, &tv);
+    if (files & FILES_S_BIN) output_testvec_bin(f_bin, &tv);
   };
 
   rv = 0;
@@ -391,9 +399,9 @@ static void usage(FILE *f) {
 };
 #endif
 
-static void process_testvecset(struct test_vector_set *tvs, int verbose, uint32_t count) {
+static void process_testvecset(struct test_vector_set *tvs, int verbose, uint32_t count, unsigned int files) {
   if (verbose) printf("%s\n", tvs->name);
-  if (generate_testvecset_files(tvs, count) < 0) {
+  if (generate_testvecset_files(tvs, count, files) < 0) {
     fprintf(stderr, "generate-test-vectors: error generating %s\n", tvs->name);
     exit(1);
   };
@@ -402,12 +410,14 @@ static void process_testvecset(struct test_vector_set *tvs, int verbose, uint32_
 int main(int argc, char *argv[]) {
   uint32_t count = 10;
   int verbose = 1;
+  int files = FILES_ALL;
   size_t i;
 
 #ifndef NO_GETOPT
   int opt;
+  int files_changed = 0;
 
-  while ((opt = getopt(argc, argv, "c:qv")) >= 0) {
+  while ((opt = getopt(argc, argv, "c:Stqv")) >= 0) {
     switch (opt) {
     case 'c':
       {
@@ -424,6 +434,14 @@ int main(int argc, char *argv[]) {
         };
       };
       break;
+    case 'S':
+      if (files_changed == 0) files = 0;
+      files |= FILES_S_BIN;
+      break;
+    case 't':
+      if (files_changed == 0) files = 0;
+      files |= FILES_TEXT;
+      break;
     case 'q':
       verbose = 0;
       break;
@@ -438,12 +456,23 @@ int main(int argc, char *argv[]) {
 #else /* NO_GETOPT, i.e. the Windows version */
   int optind = argc;
 
-  /* usage: generate-test-vectors [COUNT] [TEST-VEC-SETS] */
+  /* usage: generate-test-vectors [COUNT] [FILES] [TEST-VEC-SETS] */
 
   switch (argc) {
   default:
-    optind = 2;
+    optind = 3;
     /* fall through */
+  case 3:
+    if (strcmp(argv[2], "all") == 0) {
+      files = FILES_ALL;
+    } else if (strcmp(argv[2], "s_bin") == 0) {
+      files = FILES_S_BIN;
+    } else if (strcmp(argv[2], "text") == 0) {
+      /* not particularly useful on Windows; hash does not include CRs at EOL */
+      files = FILES_TEXT;
+    } else {
+      fprintf(stderr, "generate-test-vectors: invalid file selector\n");
+    };
   case 2:
     {
       char *optarg = argv[1];
@@ -474,12 +503,12 @@ int main(int argc, char *argv[]) {
   if (optind == argc) {
     /* no test vector set names on command line; generate them all */
     for (i = 0; i < test_vector_sets_count; ++i) {
-      process_testvecset(&(test_vector_sets[i]), verbose, count);
+      process_testvecset(&(test_vector_sets[i]), verbose, count, files);
     };
   } else {
     /* test vector set names provided on command line; generate only those */
     for (i = optind; i < argc; ++i) {
-      process_testvecset(tvs_lookup(argv[i]), verbose, count);
+      process_testvecset(tvs_lookup(argv[i]), verbose, count, files);
     };
   };
 
