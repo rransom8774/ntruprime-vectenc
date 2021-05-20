@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
         char *endptr = NULL;
         unsigned long int ul = strtoul(optarg, &endptr, 0);
         count = ul;
-        if ((*optarg != '\0') || (*endptr != '\0')) {
+        if ((*optarg == '\0') || (*endptr != '\0')) {
           fprintf(stderr, "generate-test-vectors: count is not a valid number\n");
           return 2;
         };
@@ -450,7 +450,7 @@ int main(int argc, char *argv[]) {
       char *endptr = NULL;
       unsigned long int ul = strtoul(optarg, &endptr, 0);
       count = ul;
-      if ((*optarg != '\0') || (*endptr != '\0')) {
+      if ((*optarg == '\0') || (*endptr != '\0')) {
 	fprintf(stderr, "generate-test-vectors: count is not a valid number\n");
 	return 2;
       };
