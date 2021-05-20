@@ -571,6 +571,8 @@ int main(int argc, char *argv[]) {
       files = FILES_ALL;
     } else if (strcmp(argv[2], "s_bin") == 0) {
       files = FILES_S_BIN;
+    } else if (strcmp(argv[2], "all_bin") == 0) {
+      files = FILES_R_BIN | FILES_S_BIN | FILES_DECR_BIN;
     } else if (strcmp(argv[2], "text") == 0) {
       /* not particularly useful on Windows; hash does not include CRs at EOL */
       files = FILES_TEXT;
