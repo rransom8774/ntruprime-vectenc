@@ -3,6 +3,7 @@ import sys
 import struct
 import hashlib
 import argparse
+import contextlib
 import collections
 
 import vectenc_ref
@@ -120,14 +121,51 @@ def generate_testvec_text(tv):
     rv.append('')
     return ''.join(line + '\n' for line in rv)
 
-def generate_testvecset_files(tvsetname, tvsetfunc, count):
-    with open('TVSet_%d_%s.txt' % (count, tvsetname), 'w', encoding='utf8') as f_text:
-        with open('TVSet_%d_%s_S.bin' % (count, tvsetname), 'wb') as f_bin:
-            for i in range(count):
-                seed = u32le.pack(i)
-                tv = tvsetfunc(seed)
-                f_text.write(generate_testvec_text(tv))
-                f_bin.write(tv.S)
+u16le = struct.Struct('<H')
+
+def R_to_bytes(V):
+    rv = bytearray(len(V) * 2)
+    for i in range(len(V)):
+        v = V[i]
+        if v > 32767:
+            v |= 32768
+            pass
+        v &= 65535
+        u16le.pack_into(rv, 2*i, v)
+        pass
+    return rv
+
+class DataSink(object):
+    def write(*args, **kwargs):
+        pass
+    pass
+datasink = DataSink()
+
+def maybe_open(files, file_id, fname, is_text):
+    if file_id in files:
+        if is_text:
+            return open(fname, 'w', encoding='utf8')
+        else:
+            return open(fname, 'wb')
+        pass
+    else:
+        return contextlib.nullcontext(datasink)
+    pass
+
+def generate_testvecset_files(tvsetname, tvsetfunc, count, files):
+    with maybe_open(files, 'text', 'TVSet_%d_%s.txt' % (count, tvsetname), True) as f_text:
+        with maybe_open(files, 'R', 'TVSet_%d_%s_R.bin' % (count, tvsetname), False) as f_R_bin:
+            with maybe_open(files, 'S', 'TVSet_%d_%s_S.bin' % (count, tvsetname), False) as f_S_bin:
+                with maybe_open(files, 'decR', 'TVSet_%d_%s_decR.bin' % (count, tvsetname), False) as f_decR_bin:
+                    for i in range(count):
+                        seed = u32le.pack(i)
+                        tv = tvsetfunc(seed)
+                        f_text.write(generate_testvec_text(tv))
+                        f_R_bin.write(R_to_bytes(tv.R))
+                        f_S_bin.write(tv.S)
+                        f_decR_bin.write(R_to_bytes(tv.decR))
+                        pass
+                    pass
                 pass
             pass
         pass
@@ -142,16 +180,23 @@ ap = argparse.ArgumentParser(
 ap.add_argument('-v', '--verbose', action='store_true', default=True)
 ap.add_argument('-q', '--quiet', action='store_false', dest='verbose')
 ap.add_argument('-c', '--count', type=int, default=10)
+ap.add_argument('-R', '--R-bin', action='append_const', const='R', dest='files')
+ap.add_argument('-S', '--S-bin', action='append_const', const='S', dest='files')
+ap.add_argument('-d', '--decR-bin', action='append_const', const='decR', dest='files')
+ap.add_argument('-t', '--text', action='append_const', const='text', dest='files')
 ap.add_argument('testvecsets', nargs='*', default=testvecsets_all)
 
 def main(argv):
     args = ap.parse_args(argv[1:])
+    if args.files == None or len(args.files) == 0:
+        args.files = ['R', 'S', 'decR', 'text']
+        pass
     for tvsetname in args.testvecsets:
         tvsetfunc = testvecset_map[tvsetname]
         if args.verbose:
             print(tvsetname)
             pass
-        generate_testvecset_files(tvsetname, tvsetfunc, args.count)
+        generate_testvecset_files(tvsetname, tvsetfunc, args.count, args.files)
         pass
     return 0
 

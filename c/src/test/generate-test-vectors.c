@@ -343,7 +343,30 @@ static void output_testvec_text(FILE *f, struct test_vector *tv) {
   fprintf(f, "\n");
 };
 
-static void output_testvec_bin(FILE *f, struct test_vector *tv) {
+static void output_testvec_vectelt_bin(FILE *f, struct test_vector *tv, vectelt *V) {
+  size_t Vlen = tv->tvs->Mlen;
+  size_t i;
+  uint8_t *buf = malloc(2 * Vlen);
+
+  if (buf == NULL) {
+    fprintf(stderr, "generate-test-vectors: malloc failed in output_testvec_vectelt_bin\n");
+    exit(1);
+  };
+
+  for (i = 0; i < Vlen; ++i) {
+    buf[2*i + 0] =  V[i]       & 255;
+    buf[2*i + 1] = (V[i] >> 8) & 255;
+    if (V[i] & (~(vectelt)32767)) {
+      buf[2*i + 1] |= 128;
+    };
+  };
+
+  (void)fwrite(buf, 2*Vlen, 1, f);
+
+  free(buf);
+};
+
+static void output_testvec_S_bin(FILE *f, struct test_vector *tv) {
   (void)fwrite(tv->S, tv->tvs->Slen, 1, f);
 };
 
@@ -355,13 +378,20 @@ static inline void pack_ui32(uint8_t *buf, uint32_t x) {
 };
 
 #define FILES_TEXT 1
-#define FILES_S_BIN 2
-#define FILES_ALL 3
+#define FILES_R_BIN 2
+#define FILES_S_BIN 4
+#define FILES_DECR_BIN 8
+#define FILES_ALL 15
 
 static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count, unsigned int files) {
   char fname_buf_text[128];
-  char fname_buf_bin[128];
-  FILE *f_text = NULL, *f_bin = NULL;
+  char fname_buf_R_bin[128];
+  char fname_buf_S_bin[128];
+  char fname_buf_decR_bin[128];
+  FILE *f_text = NULL;
+  FILE *f_R_bin = NULL;
+  FILE *f_S_bin = NULL;
+  FILE *f_decR_bin = NULL;
   uint32_t i;
   uint8_t seedbuf[4];
   struct test_vector tv;
@@ -380,18 +410,34 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
     if (f_text == NULL) goto err;
   };
 
+  if (files & FILES_R_BIN) {
+    snprintf(fname_buf_R_bin, 128, "TVSet_%d_%s_R.bin", count, tvs->name);
+    fname_buf_R_bin[127] = '\0';
+    f_R_bin = fopen(fname_buf_R_bin, "wb");
+    if (f_R_bin == NULL) goto err;
+  };
+
   if (files & FILES_S_BIN) {
-    snprintf(fname_buf_bin, 128, "TVSet_%d_%s_S.bin", count, tvs->name);
-    fname_buf_bin[127] = '\0';
-    f_bin = fopen(fname_buf_bin, "wb");
-    if (f_bin == NULL) goto err;
+    snprintf(fname_buf_S_bin, 128, "TVSet_%d_%s_S.bin", count, tvs->name);
+    fname_buf_S_bin[127] = '\0';
+    f_S_bin = fopen(fname_buf_S_bin, "wb");
+    if (f_S_bin == NULL) goto err;
+  };
+
+  if (files & FILES_DECR_BIN) {
+    snprintf(fname_buf_decR_bin, 128, "TVSet_%d_%s_decR.bin", count, tvs->name);
+    fname_buf_decR_bin[127] = '\0';
+    f_decR_bin = fopen(fname_buf_decR_bin, "wb");
+    if (f_decR_bin == NULL) goto err;
   };
 
   for (i = 0; i < count; ++i) {
     pack_ui32(seedbuf, i);
     if ((gtv_rv |= tv_generate_testvec(&tv)) < 0) goto err;
     if (files & FILES_TEXT) output_testvec_text(f_text, &tv);
-    if (files & FILES_S_BIN) output_testvec_bin(f_bin, &tv);
+    if (files & FILES_R_BIN) output_testvec_vectelt_bin(f_R_bin, &tv, tv.R);
+    if (files & FILES_S_BIN) output_testvec_S_bin(f_S_bin, &tv);
+    if (files & FILES_DECR_BIN) output_testvec_vectelt_bin(f_decR_bin, &tv, tv.decR);
   };
 
   rv = gtv_rv ? 3 : 0;
@@ -402,9 +448,19 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
     if (fclose(f_text) != 0) rv = -1;
   };
 
-  if (f_bin != NULL) {
-    if (ferror(f_bin) != 0) rv = -1;
-    if (fclose(f_bin) != 0) rv = -1;
+  if (f_R_bin != NULL) {
+    if (ferror(f_R_bin) != 0) rv = -1;
+    if (fclose(f_R_bin) != 0) rv = -1;
+  };
+
+  if (f_S_bin != NULL) {
+    if (ferror(f_S_bin) != 0) rv = -1;
+    if (fclose(f_S_bin) != 0) rv = -1;
+  };
+
+  if (f_decR_bin != NULL) {
+    if (ferror(f_decR_bin) != 0) rv = -1;
+    if (fclose(f_decR_bin) != 0) rv = -1;
   };
 
   if (tv.R != NULL) free(tv.R);
@@ -416,7 +472,8 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
 
 #ifndef NO_GETOPT
 static void usage(FILE *f) {
-  fprintf(f, "usage: generate-test-vectors [-qv] [-c COUNT] [TEST-VEC-SETS]\n");
+  fprintf(f, "usage: generate-test-vectors [-qv] [-RSdt] [-c COUNT] "
+	  "[TEST-VEC-SETS]\n");
 };
 #endif
 
@@ -444,7 +501,7 @@ int main(int argc, char *argv[]) {
   int opt;
   int files_changed = 0;
 
-  while ((opt = getopt(argc, argv, "c:Stqv")) >= 0) {
+  while ((opt = getopt(argc, argv, "c:RSdtqv")) >= 0) {
     switch (opt) {
     case 'c':
       {
@@ -461,12 +518,32 @@ int main(int argc, char *argv[]) {
         };
       };
       break;
+    case 'R':
+      if (files_changed == 0) {
+	files = 0;
+	files_changed = 1;
+      };
+      files |= FILES_R_BIN;
+      break;
     case 'S':
-      if (files_changed == 0) files = 0;
+      if (files_changed == 0) {
+	files = 0;
+	files_changed = 1;
+      };
       files |= FILES_S_BIN;
       break;
+    case 'd':
+      if (files_changed == 0) {
+	files = 0;
+	files_changed = 1;
+      };
+      files |= FILES_DECR_BIN;
+      break;
     case 't':
-      if (files_changed == 0) files = 0;
+      if (files_changed == 0) {
+	files = 0;
+	files_changed = 1;
+      };
       files |= FILES_TEXT;
       break;
     case 'q':
