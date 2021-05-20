@@ -26,7 +26,7 @@
 struct test_vector {
   const uint8_t *seed;
   size_t seedlen;
-  vectelt *R;
+  vectelt *R, *decR;
   uint8_t *S;
   const struct test_vector_set *tvs;
 };
@@ -107,6 +107,7 @@ static void tv_init(struct test_vector *tv) {
   tv->seed = NULL;
   tv->seedlen = 0;
   tv->R = NULL;
+  tv->decR = NULL;
   tv->S = NULL;
   tv->tvs = NULL;
 };
@@ -157,6 +158,21 @@ static int tv_generate_testvec(struct test_vector *tv) {
 
   /* now regenerate R, from the (unchanged) seed */
   if (tv_generate_R(tv) < 0) return -1;
+
+  /* now test the decoder */
+
+  if (tv->decR == NULL) {
+    tv->decR = malloc(sizeof(vectelt) * tv->tvs->Mlen);
+    if (tv->decR == NULL) return -1;
+  };
+
+  pqcr_vectcoder_decode(tv->tvs->vc, tv->decR, tv->S);
+
+  if (memcmp(tv->R, tv->decR, sizeof(vectelt) * tv->tvs->Mlen) != 0) {
+    fprintf(stderr, "decR != R: %s, %08x\n",
+	    tv->tvs->name, u32le_get(tv->seed));
+    return 1;
+  };
 
   return 0;
 };
@@ -312,14 +328,17 @@ static void output_testvec_text(FILE *f, struct test_vector *tv) {
   fprintf(f, "Seed = ");
   output_hexdump(f, tv->seed, tv->seedlen);
 
-  fprintf(f, "R = ");
+  fprintf(f, "   R = ");
   output_vectelts(f, tv->R, tv->tvs->Mlen);
 
-  fprintf(f, "M = ");
+  fprintf(f, "   M = ");
   output_vectelts(f, tv->tvs->M, tv->tvs->Mlen);
 
-  fprintf(f, "S = ");
+  fprintf(f, "   S = ");
   output_hexdump(f, tv->S, tv->tvs->Slen);
+
+  fprintf(f, "decR = ");
+  output_vectelts(f, tv->decR, tv->tvs->Mlen);
 
   fprintf(f, "\n");
 };
@@ -347,6 +366,7 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
   uint8_t seedbuf[4];
   struct test_vector tv;
   int rv = -1;
+  int gtv_rv = 0;
 
   tv_init(&tv);
   tv.seed = seedbuf;
@@ -369,12 +389,12 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
 
   for (i = 0; i < count; ++i) {
     pack_ui32(seedbuf, i);
-    if (tv_generate_testvec(&tv) < 0) goto err;
+    if ((gtv_rv |= tv_generate_testvec(&tv)) < 0) goto err;
     if (files & FILES_TEXT) output_testvec_text(f_text, &tv);
     if (files & FILES_S_BIN) output_testvec_bin(f_bin, &tv);
   };
 
-  rv = 0;
+  rv = gtv_rv ? 3 : 0;
 
  err:
   if (f_text != NULL) {
@@ -389,6 +409,7 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
 
   if (tv.R != NULL) free(tv.R);
   if (tv.S != NULL) free(tv.S);
+  if (tv.decR != NULL) free(tv.decR);
 
   return rv;
 };
@@ -399,12 +420,17 @@ static void usage(FILE *f) {
 };
 #endif
 
-static void process_testvecset(struct test_vector_set *tvs, int verbose, uint32_t count, unsigned int files) {
+static int process_testvecset(struct test_vector_set *tvs, int verbose, uint32_t count, unsigned int files) {
+  int rv;
+
   if (verbose) printf("%s\n", tvs->name);
-  if (generate_testvecset_files(tvs, count, files) < 0) {
+
+  rv = generate_testvecset_files(tvs, count, files);
+  if (rv < 0) {
     fprintf(stderr, "generate-test-vectors: error generating %s\n", tvs->name);
     exit(1);
   };
+  return rv;
 };
 
 int main(int argc, char *argv[]) {
@@ -412,6 +438,7 @@ int main(int argc, char *argv[]) {
   int verbose = 1;
   int files = FILES_ALL;
   size_t i;
+  int rv = 0;
 
 #ifndef NO_GETOPT
   int opt;
@@ -504,15 +531,15 @@ int main(int argc, char *argv[]) {
   if (optind == argc) {
     /* no test vector set names on command line; generate them all */
     for (i = 0; i < test_vector_sets_count; ++i) {
-      process_testvecset(&(test_vector_sets[i]), verbose, count, files);
+      rv |= process_testvecset(&(test_vector_sets[i]), verbose, count, files);
     };
   } else {
     /* test vector set names provided on command line; generate only those */
     for (i = optind; i < argc; ++i) {
-      process_testvecset(tvs_lookup(argv[i]), verbose, count, files);
+      rv |= process_testvecset(tvs_lookup(argv[i]), verbose, count, files);
     };
   };
 
-  return 0;
+  return rv;
 };
 

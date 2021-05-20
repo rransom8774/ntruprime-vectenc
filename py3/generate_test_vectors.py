@@ -7,7 +7,8 @@ import collections
 
 import vectenc_ref
 
-TestVector = collections.namedtuple('TestVector', ['R', 'M', 'S', 'seed'])
+TestVector = collections.namedtuple('TestVector',
+                                    ['seed', 'R', 'M', 'S', 'decR'])
 
 u32le = struct.Struct('<I')
 
@@ -28,7 +29,11 @@ def generate_R(M, seed):
 def generate_testvec(M, seed):
     R = generate_R(M, seed)
     S = bytes(vectenc_ref.Encode(R, M))
-    return TestVector(R, M, S, seed)
+    decR = vectenc_ref.Decode(S, M)
+    if decR != R:
+        print("decR != R: %s" % seed.hex())
+        pass
+    return TestVector(seed, R, M, S, decR)
 
 testvecset_map = dict()
 
@@ -108,9 +113,10 @@ tvs_random(768, 2048, 2048+256, b'foo')
 def generate_testvec_text(tv):
     rv = list()
     rv.append('Seed = ' + tv.seed.hex())
-    rv.append('R = ' + ', '.join(map(str, tv.R)))
-    rv.append('M = ' + ', '.join(map(str, tv.M)))
-    rv.append('S = ' + tv.S.hex())
+    rv.append('   R = ' + ', '.join(map(str, tv.R)))
+    rv.append('   M = ' + ', '.join(map(str, tv.M)))
+    rv.append('   S = ' + tv.S.hex())
+    rv.append('decR = ' + ', '.join(map(str, tv.decR)))
     rv.append('')
     return ''.join(line + '\n' for line in rv)
 
