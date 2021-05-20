@@ -13,7 +13,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef NO_GETOPT
 #include <unistd.h>
+#endif
 
 #include "modulo.h"
 #include "vectenc.h"
@@ -382,9 +385,11 @@ static int generate_testvecset_files(struct test_vector_set *tvs, uint32_t count
   return rv;
 };
 
+#ifndef NO_GETOPT
 static void usage(FILE *f) {
   fprintf(f, "usage: generate-test-vectors [-qv] [-c COUNT] [TEST-VEC-SETS]\n");
 };
+#endif
 
 static void process_testvecset(struct test_vector_set *tvs, int verbose, uint32_t count) {
   if (verbose) printf("%s\n", tvs->name);
@@ -395,10 +400,12 @@ static void process_testvecset(struct test_vector_set *tvs, int verbose, uint32_
 };
 
 int main(int argc, char *argv[]) {
-  int opt;
   uint32_t count = 10;
   int verbose = 1;
   size_t i;
+
+#ifndef NO_GETOPT
+  int opt;
 
   while ((opt = getopt(argc, argv, "c:qv")) >= 0) {
     switch (opt) {
@@ -428,6 +435,36 @@ int main(int argc, char *argv[]) {
       return 2;
     };
   };
+#else /* NO_GETOPT, i.e. the Windows version */
+  int optind = argc;
+
+  /* usage: generate-test-vectors [COUNT] [TEST-VEC-SETS] */
+
+  switch (argc) {
+  default:
+    optind = 2;
+    /* fall through */
+  case 2:
+    {
+      char *optarg = argv[1];
+      char *endptr = NULL;
+      unsigned long int ul = strtoul(optarg, &endptr, 0);
+      count = ul;
+      if ((*optarg != '\0') || (*endptr != '\0')) {
+	fprintf(stderr, "generate-test-vectors: count is not a valid number\n");
+	return 2;
+      };
+      if (ul != (unsigned long int) count) {
+	fprintf(stderr, "generate-test-vectors: count too large\n");
+	return 2;
+      };
+    };
+    /* fall through */
+  case 1:
+  case 0:
+    break;
+  };
+#endif
 
   if (setup_testvecsets() < 0) {
     fprintf(stderr, "generate-test-vectors: error initializing test vector sets\n");
