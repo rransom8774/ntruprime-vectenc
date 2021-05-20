@@ -473,6 +473,7 @@ int main(int argc, char *argv[]) {
     } else {
       fprintf(stderr, "generate-test-vectors: invalid file selector\n");
     };
+    /* fall through */
   case 2:
     {
       char *optarg = argv[1];
