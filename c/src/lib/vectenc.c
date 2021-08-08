@@ -17,6 +17,12 @@
 #define VECTOR_ENCODE_LIMIT 16384
 /* #define VECTOR_ENCODE_OUTMOD 256 */
 
+/* For efficiency, the bytes layer encode/decode functions assume that
+ * OUTMOD = 256 and hard-code division as (x >> 8) and modulo as (x & 255).
+ * A more general implementation would need to have a different interface.
+ * LIMIT cannot be increased by much without changing the vectelt type to
+ * uint64_t. */
+
 typedef struct modulus modulus;
 
 struct vclayer_bytes {
